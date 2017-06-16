@@ -36,11 +36,12 @@ ui <- dashboardPage(skin = "black",
                                 fluidRow(
                                   box(title = "Inputs",
                                       sliderInput("chr","Chromosome",min=1,max=22,value=22),
-                                      #changing this to dynamically react to chromosome 
-                                      #uiOutput("boundaries"),
-                                      sliderInput("CHRboundary","Boundaries",min=0,max=247200000,value=c(0,20000)),
+                                      #numericInput
+                                      numericInput("CHRboundary1","Start Position",value=100000),
+                                      numericInput("CHRboundary2","End Position",value=200000),
+                                      #sliderInput("CHRboundary","Boundaries",min=0,max=247200000,value=c(0,20000)),
                                       textInput("rsids","Specific SNP of Interest?"),
-                                      sliderInput("rthresh","R2 Threshold",min=0,max=1,value=0.8),
+                                      sliderInput("rthresh","R2 Threshold",min=0.1,max=1,value=0.8),
                                       actionButton("go1","Go!")),
                                   tabBox(title="Tables",
                                          tabPanel("HI-C",
@@ -64,8 +65,6 @@ ui <- dashboardPage(skin = "black",
 
 
 server <- shinyServer(function(input, output) {
-  #creating dynamic chr boundaries (boundaires are defined by areas with hi-c AND ld data)
-  #output$bounaries<-renderUI()
   
   ###do we need both of these datasets and the biomart info we load?
   ####need tads as it gives the TAD boundaries defined by dixon but tad_genes made obsolete by geneannot
@@ -159,7 +158,7 @@ server <- shinyServer(function(input, output) {
   # })
   
   data.hic.genes<-eventReactive(input$go1,{
-    region<-paste0(input$chr,":",input$CHRboundary[1],":",input$CHRboundary[2])
+    region<-paste0(input$chr,":",input$CHRboundary1,":",input$CHRboundary2)
     results<-getBM(attributes = c("hgnc_symbol","start_position","end_position"),
                    filters=c("chromosomal_region"), values=region,mart = ensembl54)
     results<-results[results$hgnc_symbol!="",]
@@ -182,9 +181,9 @@ server <- shinyServer(function(input, output) {
     #                    ld.data$V2>=input$CHRboundary[1] & ld.data$V2>=input$CHRboundary[1]),]
     #data<-data[V7>=input$rthresh,]
     ldFun<-function(x,pos) x[x$V4==input$rsids | 
-                               (x$V1>=input$CHRboundary[1] & x$V1<=input$CHRboundary[2] & 
-                                  x$V2>=input$CHRboundary[1] & x$V2>=input$CHRboundary[1]),]
-    ld.matrix<-read_delim_chunked(paste0("./Data2/ld_chr",input$chr,"_small.txt"), delim="\t",
+                               (x$V1>=input$CHRboundary1 & x$V1<=input$CHRboundary2 & 
+                                  x$V2>=input$CHRboundary1 & x$V2>=input$CHRboundary2),]
+    ld.matrix<-read_delim_chunked("https://www.dropbox.com/s/2pxywhotssditcb/ld_chr10_small.txt?dl=1", delim="\t",
                                   callback=DataFrameCallback$new(ldFun),
                                   progress=FALSE, chunk_size=50000)
     return(ld.matrix)
@@ -209,9 +208,9 @@ server <- shinyServer(function(input, output) {
     # data_hic<-as.data.frame(raw_hic)
     # data_hic<-raw_hic[(raw_hic$loc1>=input$CHRboundary[1] & raw_hic$loc1<=input$CHRboundary[2] &
     #                      raw_hic$loc2>=input$CHRboundary[1] & raw_hic$loc2<=input$CHRboundary[2]), ]
-    hicFun<-function(x,pos) x[(x$loc1>=input$CHRboundary[1] & x$loc1<=input$CHRboundary[2] &
-                              x$loc2>=input$CHRboundary[1] & x$loc2<=input$CHRboundary[2]), ]
-    hic.matrix<-read_delim_chunked(paste0("./Data2/chr",input$chr,"_hic.txt"), delim="\t",
+    hicFun<-function(x,pos) x[(x$loc1>=input$CHRboundary1 & x$loc1<=input$CHRboundary2 &
+                              x$loc2>=input$CHRboundary1 & x$loc2<=input$CHRboundary2), ]
+    hic.matrix<-read_delim_chunked("https://www.dropbox.com/s/vlov9d3pb3i1lhv/chr10_hic.txt?dl=1", delim="\t",
                                 callback=DataFrameCallback$new(hicFun),
                                 progress=FALSE, chunk_size=50000)
     return(hic.matrix)
@@ -220,8 +219,8 @@ server <- shinyServer(function(input, output) {
   ctcf.data<-eventReactive(input$go1,{
     load("./Data/CFCTsites.RData")
     dat<-ctcf_loc[ctcf_loc$chr==input$chr & 
-                    (ctcf_loc$start>=input$CHRboundary[1] & ctcf_loc$start<=input$CHRboundary[2] &
-                       ctcf_loc$end>=input$CHRboundary[1] & ctcf_loc$end<=input$CHRboundary[2]),]
+                    (ctcf_loc$start>=input$CHRboundary1 & ctcf_loc$start<=input$CHRboundary2 &
+                       ctcf_loc$end>=input$CHRboundary1 & ctcf_loc$end<=input$CHRboundary2),]
     return(dat)
   })
   
