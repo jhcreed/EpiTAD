@@ -35,8 +35,7 @@ ui <- dashboardPage(skin = "black",
                         tabItem(tabName="tab1",
                                 fluidRow(
                                   box(title = "Inputs",
-                                      #change back to 22 
-                                      sliderInput("chr","Chromosome",min=1,max=10,value=10),
+                                      sliderInput("chr","Chromosome",min=1,max=22,value=22),
                                       sliderInput("CHRboundary","Boundaries",min=0,max=247200000,value=c(0,20000)),
                                       textInput("rsids","Specific SNP of Interest?"),
                                       sliderInput("rthresh","R2 Threshold",min=0,max=1,value=0.8),
@@ -184,9 +183,9 @@ server <- shinyServer(function(input, output) {
     #                 (ld.data$V1>=input$CHRboundary[1] & ld.data$V1<=input$CHRboundary[2] & 
     #                    ld.data$V2>=input$CHRboundary[1] & ld.data$V2>=input$CHRboundary[1]),]
     #data<-data[V7>=input$rthresh,]
-    ldFun<-function(x,pos) x[(x$V4==input$rsids | 
+    ldFun<-function(x,pos) x[x$V4==input$rsids | 
                                (x$V1>=input$CHRboundary[1] & x$V1<=input$CHRboundary[2] & 
-                                  x$V2>=input$CHRboundary[1] & x$V2>=input$CHRboundary[1])) & x$V7>=input$rthresh,]
+                                  x$V2>=input$CHRboundary[1] & x$V2>=input$CHRboundary[1]),]
     ld.matrix<-read_delim_chunked(paste0("./Data2/ld_chr",input$chr,".txt"), delim="\t",
                                   callback=DataFrameCallback$new(ldFun),
                                   progress=FALSE, chunk_size=50000)
@@ -198,9 +197,9 @@ server <- shinyServer(function(input, output) {
     #load(paste0("./Data/ldvect_chr",input$chr,".RData"))
     # data<-ld
     # data<-ld[ld$V1>=input$CHRboundary[1] & ld$V1<=input$CHRboundary[2] ,]
-    ldFun<-function(x,pos) x[x$V1>=input$CHRboundary[1] & x$V1<=input$CHRboundary[2] ,]
-    ld.vect<-read_delim_chunked(paste0("./Data2/ldvect_chr",input$chr,"_hic.txt"), delim="\t",
-                                  callback=DataFrameCallback$new(ldFun),
+    ldFun2<-function(x,pos) x[x$V1>=input$CHRboundary[1] & x$V1<=input$CHRboundary[2] ,]
+    ld.vect<-read_delim_chunked(paste0("./Data2/ldvect_chr",input$chr,".txt"), delim="\t",
+                                  callback=DataFrameCallback$new(ldFun2),
                                   progress=FALSE, chunk_size=50000)
     return(ld.vect)
   })
@@ -229,7 +228,7 @@ server <- shinyServer(function(input, output) {
   
   output$LDresults<-renderDataTable({
     ld.data3<-ld.data2()
-    ld.data3<-ld.data3[V7>=input$rthresh,]
+    ld.data3<-ld.data3[ld.data3$V7>=input$rthresh,]
     colnames(ld.data3)<-c("Position 1","Position 2","RSid 1", "RSid 2","r^2")
     return(ld.data3)
   })
@@ -271,7 +270,8 @@ server <- shinyServer(function(input, output) {
   
   output$HICheatmap<-renderPlot({
     hic<-hic.data()
-    hic2<-ddply(hic, .(loc1), summarize, contact_value=sum(raw))
+    #throwing errors:
+    #hic2<-ddply(hic, .(loc1), summarize, contact_value=sum(raw))
     genes<-data.hic.genes()
     ctcf<-ctcf.data()
     ld<-ld.data3()
@@ -297,10 +297,13 @@ server <- shinyServer(function(input, output) {
     ld_view<-ggplot(ld)+geom_smooth(data=ld,aes(x=V1,y=r2),span=0.2)+
       geom_vline(xintercept = snp.pos[1,3])
     
-    hc_view<-ggplot(hic2)+geom_smooth(data=hic2,aes(x=loc1,y=contact_value),span=0.2,color="purple")+
-      geom_vline(xintercept = snp.pos[1,3])
+    # hc_view<-ggplot(hic2)+geom_smooth(data=hic2,aes(x=loc1,y=contact_value),span=0.2,color="purple")+
+    #   geom_vline(xintercept = snp.pos[1,3])
     
-    tks1<-tracks(CHR=chr_view, HIC=heat_view, Genes=gene_view, CTCF=ctcf_view,LD=ld_view,HIC2=hc_view,heights = c(2,3,1,1,2,2))
+    #testing without HIC2
+    #tks1<-tracks(CHR=chr_view, HIC=heat_view, Genes=gene_view, CTCF=ctcf_view,LD=ld_view,HIC2=hc_view,heights = c(2,3,1,1,2,2))
+    tks1<-tracks(CHR=chr_view, HIC=heat_view, Genes=gene_view, CTCF=ctcf_view,LD=ld_view,heights = c(2,3,1,1,2))
+    
     return(tks1)
   })
   
